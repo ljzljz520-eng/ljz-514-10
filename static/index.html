@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>地下商业街智能导航系统</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>🏬 地下商业街智能导航系统</h1>
+  <span class="subtitle">楼层 · 扶梯 · 电梯 · 通道距离 · 营业状态 一体化路径规划</span>
+</header>
+
+<div class="app">
+  <aside class="panel">
+    <section class="card">
+      <h2>路线查询</h2>
+      <label>起点
+        <select id="start"></select>
+      </label>
+      <label>终点
+        <select id="end"></select>
+      </label>
+      <label>模拟时间
+        <input type="time" id="time" value="12:00">
+      </label>
+      <div class="quick-times">
+        <button type="button" data-t="07:30">清晨 07:30</button>
+        <button type="button" data-t="12:00">中午 12:00</button>
+        <button type="button" data-t="23:30">深夜 23:30</button>
+        <button type="button" data-t="02:00">凌晨 02:00</button>
+      </div>
+      <button id="plan" class="primary">规划路径</button>
+      <div id="error" class="error" hidden></div>
+    </section>
+
+    <section class="card" id="resultCard" hidden>
+      <h2>路线概览</h2>
+      <div id="stats" class="stats"></div>
+      <h2 class="mt">步行指引</h2>
+      <ol id="steps" class="steps"></ol>
+    </section>
+  </aside>
+
+  <main class="map-wrap">
+    <div class="floor-tabs" id="floorTabs"></div>
+    <div class="svg-box">
+      <svg id="map" viewBox="0 0 520 260" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="legend">
+      <span><i class="dot subway"></i>地铁口</span>
+      <span><i class="dot shop"></i>营业店铺</span>
+      <span><i class="dot closed"></i>未营业店铺</span>
+      <span><i class="dot service"></i>服务台</span>
+      <span><i class="dot parking"></i>停车场</span>
+      <span><i class="dot esc"></i>扶梯</span>
+      <span><i class="dot elv"></i>电梯</span>
+      <span><i class="line route"></i>规划路线</span>
+    </div>
+    <p class="tip">提示：点击地图上的任意地点图标可快速设为终点；未营业店铺不能作为终点，但可作为起点。</p>
+  </main>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
