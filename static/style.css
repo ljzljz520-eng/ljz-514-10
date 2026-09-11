@@ -178,5 +178,27 @@ optgroup { font-weight: 600; }
 }
 .node-label.closed { fill: #9aa6b4; text-decoration: line-through; }
 .node-hit { fill: transparent; cursor: pointer; }
+
+/* 扶梯/电梯跨层连接胶囊 */
+.vlink {
+  stroke-width: 1;
+  opacity: .96;
+}
+.vlink-escalator { fill: #e6f7f7; stroke: #00a3a3; }
+.vlink-elevator { fill: #faf3d6; stroke: #d3b020; }
+.vlink.on-route {
+  fill: #fdecef;
+  stroke: #e23e57;
+  stroke-width: 1.8;
+}
+.vlink-text {
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+  fill: #0a7e7e;
+}
+.vlink-elevator-text { fill: #8a7008; }
+.vlink-text.on-route { fill: #c1293f; }
 .start-ring { fill: none; stroke: #2e6fb7; stroke-width: 2.5; }
 .end-ring { fill: none; stroke: #e23e57; stroke-width: 2.5; }

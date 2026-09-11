@@ -29,6 +29,7 @@ def create_app() -> Flask:
 
     @app.get("/api/map")
     def api_map():
+        # 非法时间由全局 RouteError 处理器统一返回 400 invalid_time
         now_minutes = parse_now(request.args.get("now"))
         nodes = []
         for n in g.nodes.values():
@@ -57,13 +58,15 @@ def create_app() -> Flask:
     @app.post("/api/route")
     def api_route():
         data = request.get_json(silent=True) or {}
-        try:
-            now_minutes = parse_now(data.get("now"))
-            result = find_route(g, data.get("start"), data.get("end"),
-                                now_minutes)
-        except RouteError as ex:
-            return jsonify({"error": str(ex), "code": ex.code}), 400
+        now_minutes = parse_now(data.get("now"))
+        result = find_route(g, data.get("start"), data.get("end"),
+                            now_minutes)
         return jsonify(result)
+
+    @app.errorhandler(RouteError)
+    def handle_route_error(ex: RouteError):
+        """业务参数错误(非法时间/闭店终点等)统一返回 HTTP 400。"""
+        return jsonify({"error": str(ex), "code": ex.code}), 400
 
     @app.errorhandler(404)
     def not_found(_):

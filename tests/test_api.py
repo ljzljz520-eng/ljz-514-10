@@ -34,6 +34,20 @@ def test_map_api_night_state(client):
     assert status["s15"] is True
 
 
+def test_map_api_invalid_time(client):
+    # 非法时间应返回 400 + invalid_time, 而不是通用 500
+    resp = client.get("/api/map?now=abc")
+    assert resp.status_code == 400
+    assert resp.get_json()["code"] == "invalid_time"
+
+    resp = client.get("/api/map?now=25:00")
+    assert resp.status_code == 400
+    assert resp.get_json()["code"] == "invalid_time"
+
+    # 不传时间仍正常
+    assert client.get("/api/map").status_code == 200
+
+
 def test_route_api_success(client):
     resp = client.post("/api/route", json={
         "start": "sub_a", "end": "s1", "now": "12:00"})
