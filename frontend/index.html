@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地下商业街导航系统</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #f1f5f9; color: #1e293b; }
+  header { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; padding: 18px 28px; }
+  header h1 { font-size: 22px; }
+  header p { font-size: 13px; opacity: .85; margin-top: 4px; }
+  #controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; background: #fff;
+              padding: 14px 28px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  #controls label { font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  select, input[type="time"] { padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+  .modes { display: flex; gap: 10px; font-size: 14px; align-items: center; }
+  button { padding: 7px 18px; border: none; border-radius: 6px; background: #2563eb; color: #fff;
+           font-size: 14px; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  .demo-btn { background: #e2e8f0; color: #334155; padding: 6px 10px; font-size: 12px; }
+  .demo-btn:hover { background: #cbd5e1; }
+  #msg { font-size: 14px; color: #dc2626; font-weight: 600; }
+  #summary { padding: 10px 28px; font-size: 15px; font-weight: 600; color: #0f766e; min-height: 20px; }
+  #main { display: flex; gap: 16px; padding: 0 20px 20px; align-items: flex-start; }
+  #map-wrap { background: #fff; border-radius: 10px; padding: 10px; overflow-x: auto; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  #steps { width: 340px; background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  #steps h2 { font-size: 16px; margin-bottom: 10px; }
+  #steps ol { margin-left: 20px; font-size: 14px; line-height: 1.9; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; padding: 8px 4px 0; color: #475569; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid; }
+  .route-line { stroke: #ef4444; stroke-width: 6; fill: none; stroke-linecap: round;
+                stroke-dasharray: 14 10; animation: dash 1s linear infinite; opacity: .9; }
+  .route-vert { stroke: #ef4444; stroke-width: 3; fill: none; stroke-dasharray: 6 6;
+                animation: dash 1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .node-label { font-size: 12px; fill: #334155; text-anchor: middle; }
+  .closed-tag { font-size: 10px; fill: #dc2626; text-anchor: middle; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏬 地下商业街导航系统</h1>
+  <p>根据楼层、扶梯、电梯、通道距离与营业状态规划最优路径 · 未营业店铺不能作为终点</p>
+</header>
+
+<div id="controls">
+  <label>起点 <select id="start"></select></label>
+  <label>终点 <select id="end"></select></label>
+  <div class="modes">
+    <label><input type="radio" name="mode" value="fastest" checked> 最快路线</label>
+    <label><input type="radio" name="mode" value="accessible"> 无障碍（仅电梯）</label>
+  </div>
+  <label>演示时间 <input type="time" id="now" title="留空则使用当前真实时间"></label>
+  <button id="go">规划路线</button>
+  <span id="msg"></span>
+</div>
+<div style="padding:8px 28px; display:flex; gap:8px; flex-wrap:wrap;">
+  <button class="demo-btn" data-s="M1" data-e="P1">地铁A口→停车场</button>
+  <button class="demo-btn" data-s="M2" data-e="F203">地铁B口→健身房</button>
+  <button class="demo-btn" data-s="S1" data-e="F201" data-m="accessible">服务台→超市(无障碍)</button>
+  <button class="demo-btn" data-s="M1" data-e="F103">地铁A口→服装店(未营业)</button>
+</div>
+<div id="summary"></div>
+<div id="main">
+  <div id="map-wrap">
+    <svg id="map" width="1760" height="580"></svg>
+    <div class="legend">
+      <span><i class="dot" style="border-color:#2563eb"></i>地铁口</span>
+      <span><i class="dot" style="border-color:#16a34a"></i>店铺(营业中)</span>
+      <span><i class="dot" style="border-color:#9ca3af"></i>店铺(未营业)</span>
+      <span><i class="dot" style="border-color:#9333ea"></i>服务台</span>
+      <span><i class="dot" style="border-color:#0f766e"></i>停车场</span>
+      <span><i class="dot" style="border-color:#d97706"></i>扶梯</span>
+      <span><i class="dot" style="border-color:#dc2626"></i>电梯</span>
+      <span style="color:#ef4444">━ 规划路线</span>
+    </div>
+  </div>
+  <div id="steps"><h2>🧭 路线指引</h2><ol id="step-list"><li>请选择起点和终点</li></ol></div>
+</div>
+
+<script>
+const SVGNS = "http://www.w3.org/2000/svg";
+const TYPE_META = {
+  subway:    {label: "地铁口",  color: "#2563eb", icon: "🚇"},
+  shop:      {label: "店铺",    color: "#16a34a", icon: "🏪"},
+  service:   {label: "服务台",  color: "#9333ea", icon: "🛎️"},
+  parking:   {label: "停车场",  color: "#0f766e", icon: "🅿️"},
+  escalator: {label: "扶梯",    color: "#d97706", icon: "↕"},
+  elevator:  {label: "电梯",    color: "#dc2626", icon: "🛗"},
+  junction:  {label: "通道",    color: "#cbd5e1", icon: ""},
+};
+const FLOORS = { B1: {px: 30,  label: "B1 层 · 商业"},
+                 B2: {px: 910, label: "B2 层 · 商业 / 停车"} };
+const PANEL_W = 820, PANEL_H = 520, TOP = 40;
+let MAP = null;
+
+const $ = id => document.getElementById(id);
+const nowParam = () => { const v = $("now").value; return v ? "&now=" + v : ""; };
+
+function posOf(n) { const f = FLOORS[n.floor]; return { x: f.px + n.x, y: TOP + n.y }; }
+function el(tag, attrs) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+async function loadAll() {
+  const q = nowParam() ? "?" + nowParam().slice(1) : "";
+  const [map, pois] = await Promise.all([
+    fetch("/api/map" + q).then(r => r.json()),
+    fetch("/api/pois" + q).then(r => r.json()),
+  ]);
+  MAP = map;
+  drawMap();
+  fillSelects(pois);
+}
+
+function fillSelects(pois) {
+  const groups = [["subway", "🚇 地铁口"], ["shop", "🏪 店铺"],
+                  ["service", "🛎️ 服务台"], ["parking", "🅿️ 停车场"]];
+  for (const selId of ["start", "end"]) {
+    const sel = $(selId), old = sel.value;
+    sel.innerHTML = "";
+    for (const [key, label] of groups) {
+      const og = document.createElement("optgroup");
+      og.label = label;
+      for (const p of pois[key]) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = `${p.name}（${p.floor}层）` +
+          (key === "shop" ? (p.open ? ` · ${p.hours}` : " · 未营业") : "");
+        if (key === "shop" && !p.open && selId === "end") opt.disabled = true; // 未营业不能作为终点
+        og.appendChild(opt);
+      }
+      sel.appendChild(og);
+    }
+    if (old && sel.querySelector(`option[value="${old}"]:not([disabled])`)) sel.value = old;
+  }
+  $("start").value = $("start").querySelector("option").value;
+  const endFirst = $("end").querySelector("option:not([disabled])");
+  if (!$("end").value && endFirst) $("end").value = endFirst.value;
+}
+
+function drawMap() {
+  const svg = $("map");
+  svg.innerHTML = "";
+  // 楼层底板
+  for (const f of Object.values(FLOORS)) {
+    svg.appendChild(el("rect", { x: f.px, y: 10, width: PANEL_W, height: PANEL_H, rx: 12,
+                                 fill: "#f8fafc", stroke: "#cbd5e1" }));
+    const t = el("text", { x: f.px + 16, y: 34, "font-size": 16, "font-weight": 700, fill: "#475569" });
+    t.textContent = f.label; svg.appendChild(t);
+  }
+  // 通道
+  for (const [a, b] of MAP.corridors) {
+    const na = MAP.nodes[a], nb = MAP.nodes[b], pa = posOf(na), pb = posOf(nb);
+    svg.appendChild(el("line", { x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+                                 stroke: "#e2e8f0", "stroke-width": 8, "stroke-linecap": "round" }));
+  }
+  // 扶梯 / 电梯（跨层虚线连接）
+  for (const [kind, pairs] of [["escalator", MAP.escalators], ["elevator", MAP.elevators]]) {
+    for (const [a, b] of pairs) {
+      const pa = posOf(MAP.nodes[a]), pb = posOf(MAP.nodes[b]);
+      svg.appendChild(el("line", { x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+        stroke: TYPE_META[kind].color, "stroke-width": 2, "stroke-dasharray": "5 5", opacity: .6 }));
+    }
+  }
+  // 节点
+  for (const [id, n] of Object.entries(MAP.nodes)) {
+    const p = posOf(n), meta = TYPE_META[n.type];
+    const g = el("g", {});
+    if (n.type === "junction") {
+      g.appendChild(el("circle", { cx: p.x, cy: p.y, r: 4, fill: "#cbd5e1" }));
+    } else {
+      const closed = n.type === "shop" && n.open === false;
+      const color = closed ? "#9ca3af" : meta.color;
+      g.appendChild(el("circle", { cx: p.x, cy: p.y, r: 15, fill: "#fff", stroke: color, "stroke-width": 3 }));
+      const icon = el("text", { x: p.x, y: p.y + 5, "text-anchor": "middle", "font-size": 14 });
+      icon.textContent = meta.icon; g.appendChild(icon);
+      const label = el("text", { x: p.x, y: p.y + 32, class: "node-label" });
+      label.textContent = n.name; g.appendChild(label);
+      if (closed) {
+        const tag = el("text", { x: p.x, y: p.y + 45, class: "closed-tag" });
+        tag.textContent = "未营业"; g.appendChild(tag);
+      }
+      g.dataset.nodeId = id;
+    }
+    svg.appendChild(g);
+  }
+  svg.appendChild(el("g", { id: "route-layer" }));
+}
+
+function drawRoute(route) {
+  const layer = $("route-layer") || (() => { const g = el("g", {id:"route-layer"}); $("map").appendChild(g); return g; })();
+  layer.innerHTML = "";
+  const byId = {}; for (const p of route.path) byId[p.id] = p;
+  // 路线
+  for (const e of route.edges) {
+    const pa = posOf(byId[e.from]), pb = posOf(byId[e.to]);
+    layer.appendChild(el("line", { x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+      class: e.kind === "corridor" ? "route-line" : "route-vert" }));
+  }
+  // 途经节点高亮
+  for (const p of route.path) {
+    const c = posOf(p);
+    layer.appendChild(el("circle", { cx: c.x, cy: c.y, r: 19, fill: "none",
+                                     stroke: "#ef4444", "stroke-width": 2, opacity: .7 }));
+  }
+  // 起 / 终标记
+  const s = posOf(route.path[0]), t = posOf(route.path[route.path.length - 1]);
+  for (const [pt, txt, color] of [[s, "起", "#16a34a"], [t, "终", "#dc2626"]]) {
+    layer.appendChild(el("circle", { cx: pt.x, cy: pt.y - 26, r: 11, fill: color }));
+    const m = el("text", { x: pt.x, y: pt.y - 22, "text-anchor": "middle", "font-size": 12,
+                           fill: "#fff", "font-weight": 700 });
+    m.textContent = txt; layer.appendChild(m);
+  }
+}
+
+function showSteps(route) {
+  const mm = Math.floor(route.total_time / 60), ss = Math.round(route.total_time % 60);
+  const transfers = route.steps.filter(s => s.kind === "escalator" || s.kind === "elevator").length;
+  $("summary").textContent =
+    `✅ 总用时约 ${mm} 分 ${ss} 秒 · 步行 ${route.walk_distance.toFixed(0)} 米 · 换乘 ${transfers} 次` +
+    (route.mode === "accessible" ? " · 无障碍模式（仅电梯）" : "");
+  const icons = { walk: "🚶", escalator: "↕️", elevator: "🛗", arrive: "📍" };
+  $("step-list").innerHTML = route.steps
+    .map(s => `<li>${icons[s.kind] || ""} ${s.instruction}</li>`).join("");
+}
+
+async function plan() {
+  $("msg").textContent = "";
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const url = `/api/route?start=${$("start").value}&end=${$("end").value}&mode=${mode}${nowParam()}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (!resp.ok) {
+    $("msg").textContent = "⚠️ " + data.error;
+    $("summary").textContent = "";
+    return;
+  }
+  drawRoute(data);
+  showSteps(data);
+}
+
+$("go").addEventListener("click", plan);
+$("now").addEventListener("change", loadAll);
+document.querySelectorAll(".demo-btn").forEach(b => b.addEventListener("click", () => {
+  $("start").value = b.dataset.s;
+  $("end").value = b.dataset.e;
+  if (b.dataset.m) document.querySelector(`input[name="mode"][value="${b.dataset.m}"]`).checked = true;
+  plan();
+}));
+loadAll();
+</script>
+</body>
+</html>
