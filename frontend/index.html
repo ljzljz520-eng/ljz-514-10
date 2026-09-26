@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>地下商业街智能导航系统</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🛍️</span>
+    <div>
+      <h1>地下商业街智能导航</h1>
+      <p>地铁口 · 店铺 · 服务台 · 停车场 — 按楼层 / 扶梯 / 电梯规划路径</p>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="dot entrance"></i>地铁口</span>
+    <span><i class="dot shop"></i>店铺</span>
+    <span><i class="dot service"></i>服务台</span>
+    <span><i class="dot parking"></i>停车场</span>
+    <span><i class="dot esc"></i>扶梯</span>
+    <span><i class="dot ele"></i>电梯</span>
+    <span><i class="dot closed"></i>未营业</span>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 左:地点选择 -->
+  <aside class="panel places-panel">
+    <h2>选择地点</h2>
+    <div class="endpoint-row">
+      <div class="endpoint start">
+        <label>起点</label>
+        <strong id="startLabel">未选择</strong>
+      </div>
+      <div class="endpoint goal">
+        <label>终点</label>
+        <strong id="goalLabel">未选择</strong>
+      </div>
+    </div>
+
+    <div class="pref">
+      <span class="pref-title">跨层偏好</span>
+      <label><input type="radio" name="pref" value="none" checked> 自动</label>
+      <label><input type="radio" name="pref" value="escalator"> 优先扶梯</label>
+      <label><input type="radio" name="pref" value="elevator"> 优先电梯</label>
+    </div>
+
+    <div class="hint" id="hint">在列表或地图上点击地点，先点「设为起点」。</div>
+
+    <input type="text" id="search" placeholder="搜索地点名称…">
+    <div id="placeList" class="place-list"><!-- JS 渲染 --></div>
+  </aside>
+
+  <!-- 中:地图 -->
+  <section class="panel map-panel">
+    <div class="map-toolbar">
+      <div class="floor-tabs">
+        <button class="floor-tab active" data-floor="-1">B1 商铺层</button>
+        <button class="floor-tab" data-floor="-2">B2 停车场层</button>
+        <button class="floor-tab" data-floor="all">跨层示意</button>
+      </div>
+      <button id="clearBtn" class="ghost-btn">清除路径</button>
+    </div>
+    <div class="map-wrap">
+      <svg id="map" viewBox="0 0 980 740" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </section>
+
+  <!-- 右:路径结果 -->
+  <aside class="panel route-panel">
+    <h2>导航结果</h2>
+    <div id="routeSummary" class="summary empty">请选择起点和终点</div>
+    <ol id="directions" class="directions"></ol>
+  </aside>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
